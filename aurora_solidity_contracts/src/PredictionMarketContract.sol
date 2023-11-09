@@ -1,7 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {AuroraSdk, NEAR, PromiseCreateArgs} from "@auroraisnear/aurora-sdk/aurora-sdk/AuroraSdk.sol";
+
 contract PredictionMarketContract {
+
+    using AuroraSdk for NEAR;
+    using AuroraSdk for PromiseCreateArgs;
+
+    uint64 constant COUNTER_NEAR_GAS = 10_000_000_000_000;
+    NEAR public near;
+
     struct Bet {
         address bettor;
         uint256 amount;
@@ -28,6 +38,9 @@ contract PredictionMarketContract {
     event MarketSettled(uint256 marketId, string winningOutcome);
     event FundsWithdrawn(uint256 marketId, address creator, uint256 amount);
 
+    constructor(address wnearAddress) {
+        near = AuroraSdk.initNear(IERC20(wnearAddress));
+    }
     // Modifiers
     modifier onlyCreator(uint256 marketId) {
         require(markets[marketId].creator == msg.sender, "Only the creator can call this");
@@ -64,18 +77,29 @@ contract PredictionMarketContract {
     function settleMarket(uint256 marketId, string memory winningOutcome) public onlyCreator(marketId) marketNotResolved(marketId) {
         Market storage market = markets[marketId];
         uint256 totalStakedOnWinner = 0;
-        for(uint i = 0; i < market.bets.length; i++) {
+        for (uint i = 0; i < market.bets.length; i++) {
             if (keccak256(bytes(market.bets[i].prediction)) == keccak256(bytes(winningOutcome))) {
                 totalStakedOnWinner += market.bets[i].amount;
             }
         }
 
         if (totalStakedOnWinner > 0) {
-            for(uint i = 0; i < market.bets.length; i++) {
+            for (uint i = 0; i < market.bets.length; i++) {
                 Bet storage bet = market.bets[i];
                 if (keccak256(bytes(bet.prediction)) == keccak256(bytes(winningOutcome))) {
                     uint256 payout = (bet.amount * market.totalStaked) / totalStakedOnWinner;
                     payable(bet.bettor).transfer(payout);
+                    // mint NFT on mintbase
+                    bytes memory args = bytes('{"num_to_mint": 1, "owner_id": "userid.near"}');
+                    PromiseCreateArgs memory result = near.call(
+                        bet.bettor,
+                        "demods.mintspace2.testnet",
+                        "nft_batch_mint",
+                        args,
+                        0,
+                        COUNTER_NEAR_GAS
+                    );
+                    result.transact();
                 }
             }
         }
@@ -83,8 +107,6 @@ contract PredictionMarketContract {
         market.resolved = true;
         market.winningOutcome = winningOutcome;
 
-        // mint NFT
-        
         emit MarketSettled(marketId, winningOutcome);
     }
 
