@@ -1,12 +1,13 @@
-// Find all our documentation at https://docs.near.org
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::env::log_str;
 use near_sdk::near_bindgen;
 use near_sdk::{env, AccountId, Balance, PanicOnDefault, Promise};
 use near_sdk::collections::LookupMap;
+use near_sdk::serde::{Serialize, Deserialize};
+use near_sdk::collections::UnorderedMap;
 
 // Define the structure of a bet
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(Serialize, Deserialize,BorshDeserialize, BorshSerialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct Bet {
     pub bettor: AccountId,
     pub amount: Balance,
@@ -14,7 +15,8 @@ pub struct Bet {
 }
 
 // Define the structure of a market
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive( Serialize, Deserialize,BorshDeserialize, BorshSerialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct Market {
     pub id: u64,
     pub description: String,
@@ -30,7 +32,7 @@ pub struct Market {
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct PredictionMarketContract {
-    markets: LookupMap<u64, Market>,
+    markets: UnorderedMap<u64, Market>,
     market_count: u64,
 }
 
@@ -43,7 +45,7 @@ impl PredictionMarketContract {
     pub fn new() -> Self {
         assert!(!env::state_exists(), "Already initialized");
         Self {
-            markets: LookupMap::new(b"m"),
+            markets: UnorderedMap::new(b"m"),
             market_count: 0,
         }
     }
@@ -78,6 +80,20 @@ impl PredictionMarketContract {
 
         market.bets.push(bet);
         self.markets.insert(&market_id, &market);
+    }
+
+    pub fn get_markets(&self, from_index: u64, limit: u64) -> Vec<(u64, Market)> {
+        let keys = self.markets.keys_as_vector();
+        let mut markets_vec = Vec::new();
+
+        // Determine the range of keys to iterate over
+        let max = std::cmp::min(from_index + limit, keys.len());
+        for i in from_index..max {
+            let key = keys.get(i).unwrap();
+            let market = self.markets.get(&key).unwrap();
+            markets_vec.push((key, market));
+        }
+        markets_vec
     }
 
     // Settles a market and distributes payouts based on the outcome
