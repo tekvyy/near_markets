@@ -5,6 +5,7 @@
 # will have compiled files and executables
 debug/
 target/
+out/
 near_rust_contracts/target
 near_rust_contracts/target/release
 

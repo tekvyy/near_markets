@@ -30,12 +30,17 @@ Before you can run the Prediction Markets DApp, you need to ensure you have the 
 
 ## Installation
 
-1. Clone Repo and Build Project:
+1. Build Near Contracts Project:
 
    ```bash
-   git clone https://github.com/tekvyy/near_markets
    cd near_markets/near_rust_contracts
    ./build.sh
+
+2. Build Solidity Contracts using Aurora SDK 
+
+   ```bash
+   cd near_markets/aurora_solidity_contracts
+   
 
 
 # NEAR Smart Contract for Prediction Markets
